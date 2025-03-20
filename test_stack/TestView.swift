@@ -7,6 +7,35 @@ struct UserProfile: Equatable {
     var email: String
 }
 
+struct DetailView: View {
+    let store: StoreOf<DetailReducer>
+    var body: some View {
+        VStack {
+            Text("123")
+        }
+    }
+}
+
+@Reducer
+struct DetailReducer {
+    @ObservableState
+    struct State: Equatable {
+        
+    }
+    enum Action {
+        case test1
+    }
+    
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .test1:
+                return .none
+            }
+        }
+    }
+}
+
 // MARK: - A页面 (Profile)
 @Reducer
 struct ProfileReducer {
@@ -14,16 +43,19 @@ struct ProfileReducer {
     struct State: Equatable {
         var userProfile = UserProfile(name: "", email: "")
         var settingsState = SettingsReducer.State()
+        var detailState = DetailReducer.State()
         @Presents var route: Route?
     }
     
     enum Route: Equatable {
         case settings
+        case detail
     }
     
     enum Action {
         case setNavigation(PresentationAction<Route>)
         case settings(SettingsReducer.Action)
+        case detail(DetailReducer.Action)
         case updateProfile(UserProfile)
     }
     
@@ -42,7 +74,7 @@ struct ProfileReducer {
                 state.userProfile = profile
                 return .none
                 
-            case .settings:
+            case .settings, .detail:
                 return .none
                 
             case .updateProfile(let profile):
@@ -54,11 +86,23 @@ struct ProfileReducer {
         Scope(state: \.settingsState, action: \.settings) {
             SettingsReducer()
         }
+        Scope(state: \.detailState, action: \.detail) {
+            DetailReducer()
+        }
     }
 }
 
 struct ProfileView: View {
     @Perception.Bindable var store: StoreOf<ProfileReducer>
+    
+    private var routeBinding: Binding<ProfileReducer.Route?> {
+          Binding(
+              get: { store.route },
+              set: { newValue in
+                  store.send(.setNavigation(newValue.map { .presented($0) } ?? .dismiss))
+              }
+          )
+      }
     
     var body: some View {
         NavigationStack {
@@ -70,15 +114,30 @@ struct ProfileView: View {
                     Button("Open Settings") {
                         store.send(.setNavigation(.presented(.settings)))
                     }
+                    Button("Open Detail") {
+                        store.send(.setNavigation(.presented(.detail)))
+                    }
                 }
                 .navigationTitle("Profile")
-                .navigationDestination(item: $store.scope(state: \.route, action: \.setNavigation)) { _ in
-                    SettingsView(
-                        store: store.scope(
-                            state: \.settingsState,
-                            action: \.settings
+                .navigationDestination(
+                    item: routeBinding
+                ) { route in
+                    switch route {
+                    case .settings:
+                        SettingsView(
+                            store: store.scope(
+                                state: \.settingsState,
+                                action: \.settings
+                            )
                         )
-                    )
+                    case .detail:
+                        DetailView(
+                            store: store.scope(
+                                state: \.detailState,
+                                action: \.detail
+                            )
+                        )
+                    }
                 }
             }
         }
