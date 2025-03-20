@@ -7,34 +7,7 @@ struct UserProfile: Equatable {
     var email: String
 }
 
-struct DetailView: View {
-    let store: StoreOf<DetailReducer>
-    var body: some View {
-        VStack {
-            Text("123")
-        }
-    }
-}
 
-@Reducer
-struct DetailReducer {
-    @ObservableState
-    struct State: Equatable {
-        
-    }
-    enum Action {
-        case test1
-    }
-    
-    var body: some ReducerOf<Self> {
-        Reduce { state, action in
-            switch action {
-            case .test1:
-                return .none
-            }
-        }
-    }
-}
 
 // MARK: - A页面 (Profile)
 @Reducer
@@ -44,30 +17,33 @@ struct ProfileReducer {
         var userProfile = UserProfile(name: "", email: "")
         var settingsState = SettingsReducer.State()
         var detailState = DetailReducer.State()
-        @Presents var route: Route?
+        var path = StackState<Path.State>()
     }
     
-    enum Route: Equatable {
-        case settings
-        case detail
+    @Reducer
+    enum Path {
+        case settings(SettingsReducer)
+        case detail(DetailReducer)
     }
     
     enum Action {
-        case setNavigation(PresentationAction<Route>)
         case settings(SettingsReducer.Action)
         case detail(DetailReducer.Action)
-        case updateProfile(UserProfile)
+        case path(StackActionOf<Path>)
+        case toSetting
+        case toDetail
     }
     
     var body: some Reducer<State, Action> {
         Reduce { state, action in
             switch action {
-            case .setNavigation(.presented(let route)):
-                state.route = route
+                
+            case .toSetting:
+                state.path.append(.settings(SettingsReducer.State()))
                 return .none
                 
-            case .setNavigation(.dismiss):
-                state.route = nil
+            case .toDetail:
+                state.path.append(.detail(DetailReducer.State()))
                 return .none
                 
             case .settings(.updateProfile(let profile)):
@@ -76,71 +52,55 @@ struct ProfileReducer {
                 
             case .settings, .detail:
                 return .none
-                
-            case .updateProfile(let profile):
+
+            case let .path(.element(id: _, action: .settings(.updateProfile(profile)))):
                 state.userProfile = profile
                 return .none
+            case .path:
+                return .none
             }
+            
+            
+
         }
-        
-        Scope(state: \.settingsState, action: \.settings) {
-            SettingsReducer()
-        }
-        Scope(state: \.detailState, action: \.detail) {
-            DetailReducer()
-        }
+        .forEach(\.path, action: \.path)
     }
 }
 
+extension ProfileReducer.Path.State: Equatable {}
+
 struct ProfileView: View {
     @Perception.Bindable var store: StoreOf<ProfileReducer>
-    
-    private var routeBinding: Binding<ProfileReducer.Route?> {
-          Binding(
-              get: { store.route },
-              set: { newValue in
-                  store.send(.setNavigation(newValue.map { .presented($0) } ?? .dismiss))
-              }
-          )
-      }
-    
+
     var body: some View {
-        NavigationStack {
-            WithPerceptionTracking {
+        WithPerceptionTracking {
+            NavigationStack(path: $store.scope(state: \.path, action: \.path)) {
                 VStack {
                     Text("Name: \(store.userProfile.name)")
                     Text("Email: \(store.userProfile.email)")
                     
                     Button("Open Settings") {
-                        store.send(.setNavigation(.presented(.settings)))
+                        store.send(.toSetting)
                     }
                     Button("Open Detail") {
-                        store.send(.setNavigation(.presented(.detail)))
+                        store.send(.toDetail)
                     }
                 }
                 .navigationTitle("Profile")
-                .navigationDestination(
-                    item: routeBinding
-                ) { route in
-                    switch route {
-                    case .settings:
-                        SettingsView(
-                            store: store.scope(
-                                state: \.settingsState,
-                                action: \.settings
-                            )
-                        )
-                    case .detail:
-                        DetailView(
-                            store: store.scope(
-                                state: \.detailState,
-                                action: \.detail
-                            )
-                        )
-                    }
+            } destination: { store in
+                switch store.case {
+                case let .settings(store):
+                    SettingsView(
+                        store: store
+                    )
+                case let .detail(store):
+                    DetailView(
+                        store: store
+                    )
                 }
             }
         }
+        
     }
 }
 
@@ -263,6 +223,36 @@ struct EditNameView: View {
                 }
             }
             .navigationTitle("Edit Name")
+        }
+    }
+}
+
+// MARK: - D页面 (Detail)
+struct DetailView: View {
+    let store: StoreOf<DetailReducer>
+    var body: some View {
+        VStack {
+            Text("123")
+        }
+    }
+}
+
+@Reducer
+struct DetailReducer {
+    @ObservableState
+    struct State: Equatable {
+        
+    }
+    enum Action {
+        case test1
+    }
+    
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .test1:
+                return .none
+            }
         }
     }
 }
