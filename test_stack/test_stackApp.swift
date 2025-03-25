@@ -13,14 +13,18 @@ struct test_stackApp: App {
 //    static let store = Store(initialState: NavigationDemo.State()) {
 //        NavigationDemo()
 //    }
-    static let store = Store(initialState: ProfileReducer.State()) {
-        ProfileReducer()
+//    static let store = Store(initialState: ProfileReducer.State()) {
+//        ProfileReducer()
+//    }
+    static let store = Store(initialState: FocusDemo.State()) {
+        FocusDemo()
     }
     
     var body: some Scene {
         WindowGroup {
 //            NavigationDemoView(store: Self.store)
-            ProfileView(store: Self.store)
+//            ProfileView(store: Self.store)
+            FocusDemoView(store: Self.store)
         }
     }
 }
